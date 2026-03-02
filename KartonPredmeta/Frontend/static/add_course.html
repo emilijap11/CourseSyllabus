@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Course</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div class="container add-course-shell">
+    <h1>Add Course</h1>
+    <div class="page-subtitle">Fill in the fields below to create a complete course card.</div>
+
+    <table class="form-table add-course-table">
+        <tr>
+            <th>Course</th>
+            <td>
+                <label class="field-label" for="name">Course Name</label>
+                <input id="name" placeholder="e.g. Software Engineering" required>
+            </td>
+        </tr>
+        <tr>
+            <th>Professor</th>
+            <td>
+                <label class="field-label" for="profSelect">Select existing professor</label>
+                <select id="profSelect"></select>
+                <div class="hint">If needed, enter a new professor below.</div>
+
+                <div class="two-col-fields">
+                    <div>
+                        <label class="field-label" for="profFirst">First Name</label>
+                        <input id="profFirst" placeholder="First Name" required>
+                    </div>
+                    <div>
+                        <label class="field-label" for="profLast">Last Name</label>
+                        <input id="profLast" placeholder="Last Name" required>
+                    </div>
+                    <div>
+                        <label class="field-label" for="profEmail">Email</label>
+                        <input id="profEmail" placeholder="name@example.com" required>
+                    </div>
+                    <div>
+                        <label class="field-label" for="profTitle">Title (optional)</label>
+                        <input id="profTitle" placeholder="Assistant Professor">
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <th>General</th>
+            <td>
+                <label class="field-label" for="ects">ECTS</label>
+                <input id="ects" type="number" placeholder="e.g. 6" required>
+
+                <label class="field-label" for="description">Description</label>
+                <textarea id="description" placeholder="Short course description" required></textarea>
+            </td>
+        </tr>
+        <tr>
+            <th>Academic Content</th>
+            <td>
+                <label class="field-label" for="objectives">Course Objectives</label>
+                <textarea id="objectives" placeholder="One objective per line" required></textarea>
+
+                <label class="field-label" for="outcomes">Learning Outcomes</label>
+                <textarea id="outcomes" placeholder="One outcome per line" required></textarea>
+
+                <label class="field-label" for="literature">Literature</label>
+                <textarea id="literature" placeholder="One literature item per line" required></textarea>
+
+                <label class="field-label" for="thematicUnits">Thematic Units</label>
+                <textarea id="thematicUnits" placeholder="One thematic unit per line" required></textarea>
+            </td>
+        </tr>
+        <tr>
+            <th>Assessment</th>
+            <td>
+                <label class="field-label">Pre-exam Obligations</label>
+                <div id="preExamList"></div>
+                <button class="btn-slim btn-muted" type="button" onclick="addObligationRow('preExamList')">+ Add Pre-exam</button>
+
+                <label class="field-label section-gap">Exam Obligations</label>
+                <div id="examList"></div>
+                <button class="btn-slim btn-muted" type="button" onclick="addObligationRow('examList')">+ Add Exam</button>
+                <div class="hint">Total percentage of all obligations must be 100%.</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="button-row form-actions">
+        <button class="btn-slim" onclick="addCourse()">Save Course</button>
+        <button class="btn-slim btn-outline" onclick="window.location.href='index.html'">Back</button>
+    </div>
+    <p id="result"></p>
+</div>
+
+<script>
+    async function readErrorMessage(res) {
+        try {
+            const data = await res.json();
+            return data.detail || data.message || data.error || JSON.stringify(data);
+        } catch (e) {
+            return await res.text();
+        }
+    }
+
+    let allTeachers = [];
+
+    function setProfessorInputsDisabled(disabled) {
+        document.getElementById("profFirst").disabled = disabled;
+        document.getElementById("profLast").disabled = disabled;
+        document.getElementById("profEmail").disabled = disabled;
+        document.getElementById("profTitle").disabled = disabled;
+    }
+
+    function fillProfessorInputs(teacher) {
+        document.getElementById("profFirst").value = teacher?.firstName || "";
+        document.getElementById("profLast").value = teacher?.lastName || "";
+        document.getElementById("profEmail").value = teacher?.email || "";
+        document.getElementById("profTitle").value = teacher?.title || "";
+    }
+
+    function buildProfessorSelect() {
+        const select = document.getElementById("profSelect");
+        select.innerHTML = "";
+        const optNew = document.createElement("option");
+        optNew.value = "__new__";
+        optNew.textContent = "Add new professor";
+        select.appendChild(optNew);
+        (allTeachers || []).forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t.email || "";
+            opt.textContent = `${t.firstName || ""} ${t.lastName || ""}`.trim() + (t.email ? ` (${t.email})` : "");
+            select.appendChild(opt);
+        });
+        select.value = "__new__";
+        setProfessorInputsDisabled(false);
+    }
+
+    async function loadTeachers() {
+        try {
+            const res = await fetch("/api/teachers");
+            if (!res.ok) {
+                allTeachers = [];
+                buildProfessorSelect();
+                return;
+            }
+            allTeachers = await res.json();
+            buildProfessorSelect();
+        } catch (e) {
+            allTeachers = [];
+            buildProfessorSelect();
+        }
+    }
+
+    document.getElementById("profSelect").addEventListener("change", (e) => {
+        const value = e.target.value;
+        if (value === "__new__") {
+            fillProfessorInputs(null);
+            setProfessorInputsDisabled(false);
+            return;
+        }
+        const selected = (allTeachers || []).find(t => t.email === value);
+        if (selected) {
+            fillProfessorInputs(selected);
+            setProfessorInputsDisabled(true);
+        }
+    });
+
+    async function addCourse() {
+        const name = document.getElementById("name").value.trim();
+        const profFirst = document.getElementById("profFirst").value.trim();
+        const profLast = document.getElementById("profLast").value.trim();
+        const profEmail = document.getElementById("profEmail").value.trim();
+        const profTitle = document.getElementById("profTitle").value.trim();
+        const ects = document.getElementById("ects").value.trim();
+        const description = document.getElementById("description").value.trim();
+        const objectives = document.getElementById("objectives").value.trim();
+        const outcomes = document.getElementById("outcomes").value.trim();
+        const literature = document.getElementById("literature").value.trim();
+        const thematicUnits = document.getElementById("thematicUnits").value.trim();
+        const preExam = collectObligations("preExamList", true);
+        const exam = collectObligations("examList", false);
+
+        const result = document.getElementById("result");
+
+        if (!name || !profFirst || !profLast || !profEmail || !exam) {
+            result.innerText = "Error: Course name, professor, and exam obligations are required.";
+            result.className = "error";
+            return;
+        }
+        if (!ects) {
+            result.innerText = "Error: ECTS is required.";
+            result.className = "error";
+            return;
+        }
+        if (isNaN(Number(ects))) {
+            result.innerText = "Error: ECTS must be a number.";
+            result.className = "error";
+            return;
+        }
+
+        const total = [...preExam, ...exam].reduce((sum, o) => sum + o.percent, 0);
+        if (total !== 100) {
+            result.innerText = "Error: Pre-exam + Exam obligations must total 100%.";
+            result.className = "error";
+            return;
+        }
+
+        const assessment = [
+            ...preExam.map(o => `Pre-exam: ${o.description} - ${o.percent}`),
+            ...exam.map(o => `Exam: ${o.description} - ${o.percent}`)
+        ];
+
+        const splitLines = (value) => value
+            ? value.split("\n").map(v => v.trim()).filter(v => v.length > 0)
+            : [];
+
+        const course = {
+            course: {
+                name: name,
+                ects: Number(ects),
+                description: description || null
+            },
+            teachers: [{
+                firstName: profFirst,
+                lastName: profLast,
+                email: profEmail,
+                title: profTitle || null
+            }],
+            courseObjectives: splitLines(objectives),
+            learningOutcomes: splitLines(outcomes),
+            literature: splitLines(literature),
+            thematicUnits: splitLines(thematicUnits),
+            assessmentComponents: assessment
+        };
+
+        try {
+            const res = await fetch("/api/syllabus", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(course)
+            });
+
+            if(res.ok){
+                const saved = await res.json();
+                localStorage.setItem("addedCourse", JSON.stringify(saved));
+                window.location.href="added.html";
+            } else {
+                const err = await readErrorMessage(res);
+                result.innerText = "Error: " + err;
+                result.className = "error";
+            }
+        } catch(e){
+            result.innerText = "Error: Server error.";
+            result.className = "error";
+        }
+    }
+
+    function addObligationRow(containerId, description = "", percent = "") {
+        const container = document.getElementById(containerId);
+        const row = document.createElement("div");
+        row.className = "obligation-row";
+        row.innerHTML = `
+            <input class="ob-desc" placeholder="Obligation description" value="${description}">
+            <input class="ob-percent" placeholder="%" value="${percent}">
+        `;
+        container.appendChild(row);
+    }
+
+    function collectObligations(containerId, allowEmpty) {
+        const rows = document.querySelectorAll(`#${containerId} .ob-desc`);
+        const list = [];
+        for (const row of rows) {
+            const wrapper = row.closest("div");
+            const desc = wrapper.querySelector(".ob-desc").value.trim();
+            const percentValue = wrapper.querySelector(".ob-percent").value.trim();
+            if (!desc && !percentValue) {
+                continue;
+            }
+            const cleaned = percentValue.replace("%", "").replace(",", ".").trim();
+            const percent = Number(cleaned);
+            if (!desc || cleaned === "" || isNaN(percent)) {
+                document.getElementById("result").innerText = "Error: Each obligation must have description and numeric %.";
+                document.getElementById("result").className = "error";
+                return null;
+            }
+            list.push({ description: desc, percent });
+        }
+        if (list.length === 0) {
+            return allowEmpty ? [] : null;
+        }
+        return list;
+    }
+
+    addObligationRow("preExamList");
+    addObligationRow("examList");
+    loadTeachers();
+</script>
+</body>
+</html>

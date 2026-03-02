@@ -1,0 +1,447 @@
+:root {
+    --bg-top: #f5f8fc;
+    --bg-bottom: #e6edf6;
+    --ink: #1f2a37;
+    --muted: #5f6d80;
+    --card: #ffffff;
+    --card-soft: #f8fbff;
+    --line: #d4deea;
+    --brand: #1f4b7a;
+    --brand-strong: #173a61;
+    --accent: #2a75c4;
+    --danger: #b53b3b;
+    --danger-strong: #8f2f2f;
+    --ok: #1d7d5f;
+    --shadow: 0 10px 28px rgba(20, 43, 70, 0.12);
+    --radius: 12px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Source Sans 3", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 28px 18px;
+    background: #e9eff6;
+    color: var(--ink);
+}
+
+.container,
+.page-shell,
+body > .details-box,
+body > h1,
+body > h2,
+body > .button-container,
+body > table,
+body > .search-panel,
+body > #formBox,
+body > p {
+    width: 100%;
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.container,
+.page-shell {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 14px;
+    color: #172535;
+}
+
+h1 {
+    font-size: 32px;
+    letter-spacing: 0.3px;
+}
+
+.page-subtitle {
+    color: var(--muted);
+    margin: -2px 0 14px;
+    font-size: 15px;
+}
+
+.card,
+.details-box,
+.list-box,
+.courses-box {
+    background: var(--card-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 4px 16px rgba(20, 43, 70, 0.08);
+}
+
+.details-box {
+    max-width: 980px;
+    margin: 0 auto;
+    background: var(--card);
+}
+
+.search-panel,
+.button-row,
+.button-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.button-container {
+    margin-bottom: 16px;
+}
+
+button {
+    appearance: none;
+    border: 1px solid var(--brand);
+    background: var(--brand);
+    color: #fff;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.12s ease, border-color 0.18s ease;
+}
+
+button:hover {
+    background: var(--brand-strong);
+    border-color: var(--brand-strong);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button[style*="background:#b44444"],
+#deleteBtn,
+#deleteSelectedBtn {
+    background: var(--danger) !important;
+    border-color: var(--danger) !important;
+}
+
+button[style*="background:#b44444"]:hover,
+#deleteBtn:hover,
+#deleteSelectedBtn:hover {
+    background: var(--danger-strong) !important;
+    border-color: var(--danger-strong) !important;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #b9c9dd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--ink);
+    background: #fff;
+}
+
+textarea {
+    min-height: 92px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(42, 117, 196, 0.2);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+    background: #eef3f9;
+}
+
+.hint {
+    margin: 5px 0 9px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.error {
+    color: #b42318;
+    font-weight: 700;
+}
+
+.result,
+.success {
+    color: var(--ok);
+    font-weight: 700;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+}
+
+th,
+td {
+    border-bottom: 1px solid #dce5f0;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: var(--brand);
+    color: #fff;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+}
+
+tr:nth-child(even) td {
+    background: #fafcff;
+}
+
+tr:hover td {
+    background: #f0f6ff;
+}
+
+.form-table th {
+    width: 34%;
+    text-transform: none;
+    font-size: 14px;
+}
+
+.form-table td {
+    background: #fff;
+}
+
+.section-row td {
+    background: #ebf1f9;
+    color: #324054;
+    font-weight: 700;
+}
+
+#preExamList > div,
+#examList > div,
+#editPreExam > div,
+#editExam > div {
+    margin-bottom: 8px;
+}
+
+.teacher-item,
+.course-item {
+    padding: 10px 8px;
+    border-bottom: 1px solid #dfe8f3;
+    cursor: pointer;
+}
+
+.teacher-item:hover,
+.course-item:hover {
+    background: #eef4fd;
+}
+
+ul {
+    margin: 8px 0;
+    padding-left: 18px;
+}
+
+.hero {
+    text-align: center;
+    margin-bottom: 18px;
+}
+
+.hero p {
+    color: var(--muted);
+    margin: 8px 0 0;
+}
+
+.quick-links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 360px;
+    margin: 0 auto;
+}
+
+.quick-links button {
+    width: 100%;
+    text-align: center;
+    padding: 12px 14px;
+}
+
+@media (max-width: 840px) {
+    body {
+        padding: 14px;
+    }
+
+    .container,
+    .page-shell,
+    .details-box {
+        padding: 14px;
+    }
+
+    h1 {
+        font-size: 26px;
+    }
+
+    .form-table,
+    .form-table tbody,
+    .form-table tr,
+    .form-table th,
+    .form-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .form-table th {
+        border-bottom: none;
+    }
+
+    .form-table td {
+        border-top: 1px solid #dce5f0;
+        margin-bottom: 8px;
+    }
+}
+
+.add-course-shell {
+    max-width: 1040px;
+}
+
+.add-course-table .field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #30435a;
+    margin: 8px 0 6px;
+    letter-spacing: 0.2px;
+}
+
+.add-course-table textarea {
+    min-height: 84px;
+}
+
+.two-col-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+}
+
+.section-gap {
+    margin-top: 14px;
+}
+
+.obligation-row {
+    display: grid;
+    grid-template-columns: 1fr 110px;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.btn-slim {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 32px;
+}
+
+.btn-muted {
+    background: #2d5d8d;
+    border-color: #2d5d8d;
+}
+
+.btn-muted:hover {
+    background: #244c72;
+    border-color: #244c72;
+}
+
+.btn-outline {
+    background: transparent;
+    color: #2a4f77;
+    border-color: #8ea9c8;
+}
+
+.btn-outline:hover {
+    background: #eef4fb;
+    color: #193b5e;
+    border-color: #7c9abd;
+}
+
+.form-actions {
+    margin-top: 14px;
+}
+
+@media (max-width: 840px) {
+    .two-col-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .obligation-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Unified table look across pages (same visual language as Add Course) */
+.table-like-add,
+.form-table,
+.add-course-table {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 4px 14px rgba(20, 43, 70, 0.08);
+}
+
+.table-like-add th,
+.form-table th,
+.add-course-table th {
+    text-transform: none;
+    font-size: 14px;
+    letter-spacing: 0.2px;
+    font-weight: 700;
+}
+
+.table-like-add td,
+.form-table td,
+.add-course-table td {
+    font-size: 14px;
+}
+
+.page-subtitle {
+    width: 100%;
+    max-width: 100%;
+}
+
+#result {
+    margin-top: 10px;
+}
+
+/* Teachers page alignment */
+.teacher-row-item {
+    cursor: pointer;
+}
+
+.teacher-row-item.is-selected td {
+    background: #e9f2ff !important;
+}
+
+.field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #30435a;
+    margin: 8px 0 6px;
+    letter-spacing: 0.2px;
+}

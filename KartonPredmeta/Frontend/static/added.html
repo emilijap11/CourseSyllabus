@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Course Added</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+
+<body>
+<div class="page-shell">
+    <h1>Course Added</h1>
+    <div class="page-subtitle">The course has been saved successfully.</div>
+
+    <div class="card">
+        <p><b>Name:</b> <span id="name"></span></p>
+        <p><b>ECTS:</b> <span id="ects"></span></p>
+        <p><b>Description:</b> <span id="description"></span></p>
+    </div>
+
+    <div class="button-row form-actions">
+        <button class="btn-slim btn-outline" onclick="goBack()">Back</button>
+        <button class="btn-slim" onclick="editCourse()">Edit</button>
+    </div>
+</div>
+
+<script>
+
+    const saved = JSON.parse(localStorage.getItem("addedCourse"));
+    const course = saved?.course || saved || {};
+
+    document.getElementById("name").innerText = course.name || "";
+    document.getElementById("ects").innerText = course.ects || "";
+    document.getElementById("description").innerText = course.description || "";
+
+    function goBack(){
+        window.location.href="index.html";
+    }
+
+    function editCourse(){
+        localStorage.setItem("editCourse", JSON.stringify(saved || course));
+        window.location.href="edit_course.html";
+    }
+
+</script>
+
+</body>
+</html>

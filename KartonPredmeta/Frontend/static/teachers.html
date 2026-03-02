@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>All Teachers</title>
+    <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+<div class="page-shell">
+    <h1>All Teachers</h1>
+    <div class="page-subtitle">Select a teacher to view courses and edit profile data.</div>
+
+    <table class="add-course-table table-like-add" id="teachersTable">
+        <thead>
+        <tr>
+            <th>Teacher</th>
+            <th>Email</th>
+            <th>Title</th>
+        </tr>
+        </thead>
+        <tbody id="teachersListBody">
+        <tr><td colspan="3">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    <div class="card" id="coursesBox" style="margin-top: 12px;">
+        <div id="teacherCourses">Select a teacher to see courses.</div>
+    </div>
+
+    <div class="button-row form-actions">
+        <button class="btn-slim btn-outline" onclick="window.location.href='index.html'">Back</button>
+        <button class="btn-slim" id="deleteSelectedBtn" style="display:none;">Delete Selected Teacher</button>
+    </div>
+</div>
+
+<script>
+    async function loadTeachers() {
+        const body = document.getElementById("teachersListBody");
+        const res = await fetch("/api/teachers");
+        if (!res.ok) {
+            body.innerHTML = '<tr><td colspan="3" class="error">Error: Cannot load teachers.</td></tr>';
+            return;
+        }
+
+        const data = await res.json();
+        if (!data || data.length === 0) {
+            body.innerHTML = '<tr><td colspan="3">No teachers found.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = "";
+        data.forEach(t => {
+            const tr = document.createElement("tr");
+            tr.className = "teacher-row-item";
+            tr.innerHTML = `
+                <td>${(t.firstName || "") + " " + (t.lastName || "")}</td>
+                <td>${t.email || "-"}</td>
+                <td>${t.title || "-"}</td>
+            `;
+            tr.onclick = () => selectTeacher(t, tr);
+            body.appendChild(tr);
+        });
+    }
+
+    function renderTeacherHeader(teacherLabel, teacherTitle) {
+        const header = document.createElement("div");
+        const title = document.createElement("h3");
+        title.className = "courses-title";
+        title.textContent = `Courses for ${teacherLabel}`;
+        const meta = document.createElement("div");
+        meta.textContent = teacherTitle ? `Title: ${teacherTitle}` : "";
+        header.appendChild(title);
+        header.appendChild(meta);
+        return header;
+    }
+
+    function renderTeacherEditForm(teacher) {
+        const wrapper = document.createElement("div");
+        wrapper.style.marginTop = "10px";
+        wrapper.innerHTML = `
+            <div class="page-subtitle" style="margin-top:8px;">Edit Teacher</div>
+            <label class="field-label" for="editTeacherFirst">First Name</label>
+            <input id="editTeacherFirst" placeholder="First Name" value="${teacher.firstName || ""}">
+            <label class="field-label" for="editTeacherLast">Last Name</label>
+            <input id="editTeacherLast" placeholder="Last Name" value="${teacher.lastName || ""}">
+            <label class="field-label" for="editTeacherEmail">Email</label>
+            <input id="editTeacherEmail" placeholder="Email" value="${teacher.email || ""}">
+            <label class="field-label" for="editTeacherTitle">Title</label>
+            <input id="editTeacherTitle" placeholder="Title" value="${teacher.title || ""}">
+            <button class="btn-slim" id="saveTeacherBtn">Save Changes</button>
+        `;
+
+        wrapper.querySelector("#saveTeacherBtn").onclick = async () => {
+            const payload = {
+                firstName: wrapper.querySelector("#editTeacherFirst").value.trim(),
+                lastName: wrapper.querySelector("#editTeacherLast").value.trim(),
+                email: wrapper.querySelector("#editTeacherEmail").value.trim(),
+                title: wrapper.querySelector("#editTeacherTitle").value.trim()
+            };
+            if (!payload.firstName || !payload.lastName || !payload.email) {
+                alert("Error: First name, last name and email are required.");
+                return;
+            }
+            const res = await fetch(`/api/teachers/${teacher.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                alert("Error: Cannot update teacher.");
+                return;
+            }
+            await loadTeachers();
+            document.getElementById("teacherCourses").innerText = "Teacher updated. Select again to refresh details.";
+        };
+        return wrapper;
+    }
+
+    async function selectTeacher(teacher, rowElement) {
+        document.querySelectorAll(".teacher-row-item").forEach(r => r.classList.remove("is-selected"));
+        rowElement.classList.add("is-selected");
+
+        const target = document.getElementById("teacherCourses");
+        target.innerText = "Loading courses...";
+        const res = await fetch(`/api/teachers/${teacher.id}/courses`);
+        if (!res.ok) {
+            target.innerText = "Error: Cannot load courses.";
+            return;
+        }
+
+        const courses = await res.json();
+        const teacherLabel = `${teacher.firstName || ""} ${teacher.lastName || ""}`.trim();
+        const header = renderTeacherHeader(teacherLabel, teacher.title);
+        const ul = document.createElement("ul");
+        if (!courses || courses.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "No courses found.";
+            ul.appendChild(li);
+        } else {
+            courses.forEach(c => {
+                const li = document.createElement("li");
+                li.textContent = `${c.name || ""}`;
+                ul.appendChild(li);
+            });
+        }
+        target.innerHTML = "";
+        target.appendChild(header);
+        target.appendChild(renderTeacherEditForm(teacher));
+        target.appendChild(ul);
+
+        const deleteBtn = document.getElementById("deleteSelectedBtn");
+        deleteBtn.style.display = "inline-block";
+        deleteBtn.onclick = async () => deleteTeacher(teacher.id);
+    }
+
+    async function deleteTeacher(teacherId) {
+        if (!confirm("Are you sure you want to delete this teacher?")) {
+            return;
+        }
+        const res = await fetch(`/api/teachers/${teacherId}`, { method: "DELETE" });
+        if (!res.ok) {
+            alert("Error: Cannot delete teacher.");
+            return;
+        }
+        document.getElementById("teacherCourses").innerText = "Select a teacher to see courses.";
+        const deleteBtn = document.getElementById("deleteSelectedBtn");
+        deleteBtn.style.display = "none";
+        deleteBtn.onclick = null;
+        loadTeachers();
+    }
+
+    loadTeachers();
+</script>
+</body>
+</html>

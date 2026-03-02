@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Teacher</title>
+    <link rel="stylesheet" href="style.css?v=5">
+</head>
+<body>
+<div class="page-shell">
+    <h1>Add Teacher</h1>
+    <div class="page-subtitle">Create a teacher profile and assign it to a course.</div>
+
+    <table class="form-table add-course-table">
+        <tr>
+            <th>Teacher</th>
+            <td>
+                <label class="field-label" for="teacherFirstName">First Name</label>
+                <input id="teacherFirstName" placeholder="First Name">
+
+                <label class="field-label" for="teacherLastName">Last Name</label>
+                <input id="teacherLastName" placeholder="Last Name">
+
+                <label class="field-label" for="teacherEmail">Email</label>
+                <input id="teacherEmail" placeholder="name@example.com">
+
+                <label class="field-label" for="teacherTitle">Title</label>
+                <input id="teacherTitle" placeholder="Assistant Professor">
+            </td>
+        </tr>
+        <tr>
+            <th>Course</th>
+            <td>
+                <label class="field-label" for="courseName">Select Course</label>
+                <select id="courseName"></select>
+            </td>
+        </tr>
+    </table>
+
+    <div class="button-row form-actions">
+        <button class="btn-slim" onclick="addTeacher()">Save Teacher</button>
+        <button class="btn-slim" onclick="window.location.href='teachers.html'">Show All Teachers</button>
+        <button class="btn-slim btn-outline" onclick="window.location.href='index.html'">Back</button>
+    </div>
+
+    <p id="teacherResult"></p>
+</div>
+
+<script>
+    async function readErrorMessage(res) {
+        try {
+            const data = await res.json();
+            return data.detail || data.message || data.error || JSON.stringify(data);
+        } catch (e) {
+            return await res.text();
+        }
+    }
+
+    async function addTeacher(){
+        const result = teacherResult;
+        const teacher={
+            firstName:teacherFirstName.value,
+            lastName:teacherLastName.value,
+            email:teacherEmail.value,
+            title:teacherTitle.value,
+            courseId: null,
+            courseName: courseName.value || null
+        };
+        if (!teacher.firstName || !teacher.lastName || !teacher.email || !teacher.title || !teacher.courseName) {
+            result.innerText = "Error: All fields are required, including course.";
+            result.className = "error";
+            return;
+        }
+        try{
+            const res = await fetch("/api/teachers",{
+                method:"POST",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify(teacher)
+            });
+            if(res.ok){
+                await res.json();
+                result.innerText="Success: Teacher added.";
+                result.className="result";
+            } else {
+                const text = await readErrorMessage(res);
+                result.innerText="Error: "+text;
+                result.className="error";
+            }
+        } catch(err){
+            result.innerText="Error: "+err;
+            result.className="error";
+        }
+    }
+
+    async function loadCourses() {
+        const select = document.getElementById("courseName");
+        select.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select Course";
+        select.appendChild(placeholder);
+        const res = await fetch("/api/courses");
+        if (!res.ok) {
+            teacherResult.innerText = "Error: Cannot load courses.";
+            teacherResult.className = "error";
+            return;
+        }
+        const data = await res.json();
+        if (!data || data.length === 0) {
+            placeholder.textContent = "No courses available";
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
+        data.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.name;
+            opt.textContent = c.name;
+            select.appendChild(opt);
+        });
+    }
+
+    loadCourses();
+</script>
+</body>
+</html>

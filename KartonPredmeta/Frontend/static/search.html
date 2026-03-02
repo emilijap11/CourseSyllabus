@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search Course</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div class="page-shell">
+    <h1>Course Lookup</h1>
+    <div class="page-subtitle">Find course details by ID</div>
+
+    <div class="search-panel card">
+        <input id="searchId" placeholder="Course ID">
+        <button class="btn-slim" onclick="loadCourse()">Search</button>
+        <button class="btn-slim btn-outline" onclick="location.href='index.html'">Back</button>
+        <button class="btn-slim" id="openDetailsBtn" style="display:none">Open Details</button>
+    </div>
+
+    <p id="result"></p>
+
+    <div id="formBox" class="card" style="display:none">
+        <div><b>Course Name:</b> <span id="viewCourseName"></span></div>
+    </div>
+</div>
+
+<script>
+
+    let currentId = null;
+
+    async function loadCourse(){
+        const id = document.getElementById("searchId").value;
+
+        const res = await fetch("/api/syllabus/" + id);
+
+        if(!res.ok){
+            result.innerText="Error: Course not found.";
+            return;
+        }
+
+        const c = await res.json();
+        currentId = id;
+        formBox.style.display="block";
+
+        document.getElementById("viewCourseName").textContent = c.course?.name || "";
+        const openBtn = document.getElementById("openDetailsBtn");
+        openBtn.style.display = "inline-block";
+        openBtn.onclick = () => {
+            window.location.href = `course_detail.html?id=${currentId}`;
+        };
+    }
+
+    function setList(elementId, items){
+        const list = document.getElementById(elementId);
+        if (!list) {
+            return;
+        }
+        list.innerHTML = "";
+        const safeItems = (items || []).filter(i => String(i).trim().length > 0);
+        if (safeItems.length === 0) {
+            const li = document.createElement("li");
+            li.textContent = "—";
+            list.appendChild(li);
+            return;
+        }
+        safeItems.forEach(item => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            list.appendChild(li);
+        });
+    }
+
+
+</script>
+
+</body>
+</html>

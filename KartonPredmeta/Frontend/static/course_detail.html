@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Course Details</title>
+    <link rel="stylesheet" href="style.css?v=4" />
+</head>
+<body>
+<div class="page-shell">
+    <h1>Course Details</h1>
+    <div class="page-subtitle">View or edit the full course card in one table layout.</div>
+    <div class="details-box">
+    <div id="viewMode">
+        <table class="form-table add-course-table" id="viewTable"></table>
+    </div>
+
+    <div id="editMode" style="display:none;">
+        <table class="form-table add-course-table" id="editTable"></table>
+    </div>
+
+    <div class="button-row form-actions">
+        <button id="editBtn" class="btn-slim">Edit</button>
+        <button id="saveBtn" class="btn-slim" style="display:none;">Save Changes</button>
+        <button id="deleteBtn" class="btn-slim" style="background:#b44444;">Delete Course</button>
+        <button class="btn-slim btn-outline" onclick="history.back()">Back</button>
+    </div>
+</div>
+</div>
+
+<script>
+    const courseId = new URLSearchParams(location.search).get("id");
+    let originalData = {};
+    let allTeachers = [];
+
+
+    const fields = [
+        { label: "Course Name", key: "name", path: "course", type: "text" },
+        { label: "ECTS", key: "ects", path: "course", type: "number" },
+        { label: "Description", key: "description", path: "course", type: "textarea" },
+        { label: "Course Objectives", key: "courseObjectives", type: "list" },
+        { label: "Learning Outcomes", key: "learningOutcomes", type: "list" },
+        { label: "Literature", key: "literature", type: "list" },
+        { label: "Thematic Units", key: "thematicUnits", type: "list" }
+    ];
+
+    const assessmentFields = [
+        { label: "Pre-exam Obligations", id: "editPreExam", viewId: "viewPreExam" },
+        { label: "Exam Obligations", id: "editExam", viewId: "viewExam" }
+    ];
+
+
+    const $ = (id) => document.getElementById(id);
+
+    async function readError(res) {
+        try {
+            const data = await res.json();
+            return data.detail || data.message || data.error || JSON.stringify(data);
+        } catch {
+            return await res.text();
+        }
+    }
+
+    function setViewEdit(isEdit) {
+        $("viewMode").style.display = isEdit ? "none" : "block";
+        $("editMode").style.display = isEdit ? "block" : "none";
+        $("editBtn").style.display = isEdit ? "none" : "inline-block";
+        $("saveBtn").style.display = isEdit ? "inline-block" : "none";
+        if (isEdit) populateEditForm(originalData);
+    }
+
+    function valueFrom(course, f) {
+        const base = f.path ? course[f.path] || {} : course;
+        return base[f.key];
+    }
+
+    function renderView(course) {
+        const rows = fields.map(f => `
+    <tr>
+      <th>${f.label}</th>
+      <td>${formatView(valueFrom(course, f), f.type)}</td>
+    </tr>
+  `);
+
+        rows.push(`
+    <tr><th>Teacher</th><td id="viewTeacher"></td></tr>
+    <tr><th>Pre-exam</th><td><ul id="viewPreExam"></ul></td></tr>
+    <tr><th>Exam</th><td><ul id="viewExam"></ul></td></tr>
+  `);
+
+        $("viewTable").innerHTML = rows.join("");
+        renderTeacherView(course);
+        setAssessmentLists(course.assessmentComponents);
+    }
+
+    function renderEdit(course) {
+        const rows = fields.map(f => `
+    <tr>
+      <th>${f.label}</th>
+      <td>${inputFor(valueFrom(course, f), f)}</td>
+    </tr>
+  `);
+
+        rows.push(`
+    <tr><th>Professor</th><td><div id="teacherEditor"></div></td></tr>
+    <tr>
+      <th>Pre-exam Obligations</th>
+      <td>
+        <div id="editPreExam"></div>
+        <button type="button" onclick="addObligationRow('editPreExam')">Add Pre-exam</button>
+      </td>
+    </tr>
+    <tr>
+      <th>Exam Obligations</th>
+      <td>
+        <div id="editExam"></div>
+        <button type="button" onclick="addObligationRow('editExam')">Add Exam</button>
+      </td>
+    </tr>
+  `);
+
+        $("editTable").innerHTML = rows.join("");
+        setupTeacherEditor("teacherEditor");
+        const parsed = parseAssessment(course.assessmentComponents || []);
+        renderObligations("editPreExam", parsed.preExam);
+        renderObligations("editExam", parsed.exam);
+    }
+
+    function formatView(val, type) {
+        if (type === "list") {
+            const items = (val || []).filter(x => String(x).trim().length);
+            return items.length
+                ? `<ul>${items.map(x => `<li>${x}</li>`).join("")}</ul>`
+                : "—";
+        }
+        return val ?? "";
+    }
+
+    function inputFor(val, f) {
+        const v = f.type === "list" ? (val || []).join("\n") : (val ?? "");
+        if (f.type === "textarea" || f.type === "list") {
+            return `<textarea id="edit-${f.key}">${v}</textarea>`;
+        }
+        return `<input id="edit-${f.key}" value="${v}" ${f.type === "number" ? 'type="number"' : ""}>`;
+    }
+
+    function setAssessmentLists(items) {
+        const { preExam, exam } = parseAssessment(items);
+        setList("viewPreExam", preExam.map(o => `${o.description} - ${o.percent}`));
+        setList("viewExam", exam.map(o => `${o.description} - ${o.percent}`));
+    }
+
+    function setList(id, items) {
+        const el = $(id);
+        el.innerHTML = "";
+        const list = (items || []).filter(i => String(i).trim().length);
+        if (!list.length) return el.appendChild(document.createElement("li")).textContent = "—";
+        list.forEach(i => {
+            const li = document.createElement("li");
+            li.textContent = i;
+            el.appendChild(li);
+        });
+    }
+
+
+
+    function parseAssessment(items = []) {
+        const preExam = [], exam = [];
+        items.forEach(i => {
+            const s = String(i);
+            const isPre = s.startsWith("Pre-exam:");
+            const isExam = s.startsWith("Exam:");
+            const rest = s.replace(/^Pre-exam:\s*|^Exam:\s*/,"");
+            const [desc, percent] = rest.split(" - ");
+            const obj = { description: desc || rest, percent: Number(percent) || 0 };
+            if (isExam) exam.push(obj);
+            else preExam.push(obj);
+        });
+        return { preExam, exam };
+    }
+
+
+
+    function addObligationRow(containerId, description = "", percent = "") {
+        const container = $(containerId);
+        const row = document.createElement("div");
+        row.style.display = "grid";
+        row.style.gridTemplateColumns = "1fr 120px";
+        row.style.gap = "8px";
+        row.style.marginBottom = "8px";
+        row.innerHTML = `
+    <input class="ob-desc" placeholder="Description" value="${description}">
+    <input class="ob-percent" placeholder="%" value="${percent}">
+  `;
+        container.appendChild(row);
+    }
+
+    function renderObligations(containerId, items) {
+        $(containerId).innerHTML = "";
+        if (!items || !items.length) return addObligationRow(containerId);
+        items.forEach(i => addObligationRow(containerId, i.description, i.percent));
+    }
+
+    function collectObligations(containerId, allowEmpty) {
+        const rows = document.querySelectorAll(`#${containerId} .ob-desc`);
+        const list = [];
+        for (const row of rows) {
+            const wrapper = row.closest("div");
+            const desc = wrapper.querySelector(".ob-desc").value.trim();
+            const percentValue = wrapper.querySelector(".ob-percent").value.trim();
+            if (!desc && !percentValue) continue;
+            const cleaned = percentValue.replace("%", "").replace(",", ".").trim();
+            const percent = Number(cleaned);
+            if (!desc || cleaned === "" || isNaN(percent)) return null;
+            list.push({ description: desc, percent });
+        }
+        if (!list.length) return allowEmpty ? [] : null;
+        return list;
+    }
+
+    function getTeachers(course) {
+        if (Array.isArray(course.teachers) && course.teachers.length) return course.teachers;
+        if (course.teacher) return [course.teacher];
+        return [];
+    }
+
+
+
+    function renderTeacherView(course) {
+        const cell = $("viewTeacher");
+        cell.innerHTML = "";
+        const teachers = getTeachers(course);
+        if (!teachers.length) return;
+        teachers.forEach(t => {
+            const div = document.createElement("div");
+            const email = t.email ? ` (${t.email})` : "";
+            div.textContent = `${t.firstName || ""} ${t.lastName || ""}`.trim() + email;
+            cell.appendChild(div);
+        });
+    }
+
+    async function loadTeachersList() {
+        try {
+            const res = await fetch("/api/teachers");
+            allTeachers = res.ok ? await res.json() : [];
+        } catch {
+            allTeachers = [];
+        }
+    }
+
+    function buildTeacherSelect(selectedEmail) {
+        const select = document.createElement("select");
+        select.className = "teacher-select";
+        select.innerHTML = `<option value="__new__">Add new teacher</option>`;
+        (allTeachers || []).forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t.email || "";
+            opt.textContent = `${t.firstName || ""} ${t.lastName || ""}`.trim() + (t.email ? ` (${t.email})` : "");
+            if (selectedEmail === t.email) opt.selected = true;
+            select.appendChild(opt);
+        });
+        return select;
+    }
+
+    async function setupTeacherEditor(containerId) {
+        const cell = $(containerId);
+        const teachers = getTeachers(originalData);
+        cell.innerHTML = "";
+        await loadTeachersList();
+        renderTeacherInputs(cell, teachers);
+    }
+
+    function renderTeacherInputs(container, teachers) {
+        container.innerHTML = "";
+        const list = teachers.length ? teachers : [{ firstName:"", lastName:"", email:"", title:"" }];
+
+        list.forEach(t => {
+            const row = document.createElement("div");
+            row.className = "teacher-row";
+
+            const select = buildTeacherSelect(t.email);
+            const first = input("teacher-first", "First Name", t.firstName);
+            const last = input("teacher-last", "Last Name", t.lastName);
+            const email = input("teacher-email", "Email", t.email);
+            const title = input("teacher-title", "Title", t.title);
+
+            select.onchange = () => {
+                if (select.value === "__new__") {
+                    [first,last,email,title].forEach(i => { i.value = ""; i.disabled = false; });
+                    return;
+                }
+                const selected = allTeachers.find(x => x.email === select.value);
+                if (selected) {
+                    first.value = selected.firstName || "";
+                    last.value = selected.lastName || "";
+                    email.value = selected.email || "";
+                    title.value = selected.title || "";
+                    [first,last,email,title].forEach(i => i.disabled = true);
+                }
+            };
+
+            if (t.email && allTeachers.some(x => x.email === t.email)) {
+                select.value = t.email;
+                select.onchange();
+            } else {
+                select.value = "__new__";
+            }
+
+            row.append(select, first, last, email, title);
+            container.appendChild(row);
+        });
+
+        const actions = document.createElement("div");
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.textContent = "Add Professor";
+        addBtn.onclick = () => {
+            list.push({ firstName:"", lastName:"", email:"", title:"" });
+            renderTeacherInputs(container, list);
+        };
+        actions.appendChild(addBtn);
+        container.appendChild(actions);
+    }
+
+    function input(cls, placeholder, value = "") {
+        const el = document.createElement("input");
+        el.className = cls;
+        el.placeholder = placeholder;
+        el.value = value || "";
+        return el;
+    }
+
+    function collectTeachersFromEditor() {
+        const rows = document.querySelectorAll(".teacher-row");
+        const teachers = [];
+        for (const row of rows) {
+            const select = row.querySelector(".teacher-select");
+            const firstName = row.querySelector(".teacher-first").value.trim();
+            const lastName = row.querySelector(".teacher-last").value.trim();
+            const email = row.querySelector(".teacher-email").value.trim();
+            const title = row.querySelector(".teacher-title").value.trim();
+
+            if (select && select.value !== "__new__") {
+                const selected = allTeachers.find(x => x.email === select.value);
+                if (selected) {
+                    teachers.push({
+                        firstName: selected.firstName || "",
+                        lastName: selected.lastName || "",
+                        email: selected.email || "",
+                        title: selected.title || ""
+                    });
+                    continue;
+                }
+            }
+
+            if (!firstName && !lastName && !email && !title) continue;
+            if (!email) return alert("Teacher email is required."), null;
+
+            teachers.push({ firstName, lastName, email, title });
+        }
+        return teachers;
+    }
+
+    function populateEditForm(course) {
+        fields.forEach(f => {
+            const val = valueFrom(course, f);
+            const el = $("edit-" + f.key);
+            if (!el) return;
+            el.value = f.type === "list" ? (val || []).join("\n") : (val ?? "");
+        });
+        renderEdit(course);
+    }
+
+    async function saveChanges() {
+        const teachers = collectTeachersFromEditor();
+        if (teachers === null) return;
+
+        const preExam = collectObligations("editPreExam", true);
+        const exam = collectObligations("editExam", false);
+        if (!exam) return alert("Error: Exam obligations are required and must be numeric %.");
+
+        const ectsValue = $("edit-ects").value;
+        if (isNaN(Number(ectsValue))) return alert("Error: ECTS must be a number.");
+
+        const percents = [...preExam, ...exam].map(o => o.percent);
+        if (percents.some(v => isNaN(v))) return alert("Error: Each obligation must include a percentage.");
+        if (percents.reduce((s,v) => s+v, 0) !== 100) return alert("Error: Obligations must total 100%.");
+
+        const assessment = [
+            ...preExam.map(o => `Pre-exam: ${o.description} - ${o.percent}`),
+            ...exam.map(o => `Exam: ${o.description} - ${o.percent}`)
+        ];
+
+        const updated = {
+            course: {
+                name: $("edit-name").value.trim(),
+                ects: parseInt(ectsValue),
+                description: $("edit-description").value.trim()
+            },
+            teacher: teachers.length ? teachers[0] : null,
+            teachers,
+            courseObjectives: $("edit-courseObjectives").value.split("\n").map(t => t.trim()).filter(Boolean),
+            learningOutcomes: $("edit-learningOutcomes").value.split("\n").map(t => t.trim()).filter(Boolean),
+            literature: $("edit-literature").value.split("\n").map(t => t.trim()).filter(Boolean),
+            thematicUnits: $("edit-thematicUnits").value.split("\n").map(t => t.trim()).filter(Boolean),
+            assessmentComponents: assessment
+        };
+
+        const res = await fetch("/api/syllabus/" + courseId, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updated)
+        });
+
+        if (res.ok) alert("Success: Changes saved.");
+        else alert("Error: Save failed. " + await readError(res));
+        loadCourse();
+    }
+
+    async function deleteCourse() {
+        if (!confirm("Delete this course? This cannot be undone.")) return;
+        let res = await fetch("/api/syllabus/" + courseId, { method:"DELETE" });
+        if (res.status === 405) {
+            res = await fetch("/api/syllabus/" + courseId + "/delete", { method:"POST" });
+        }
+        if (res.ok) {
+            alert("Course deleted.");
+            location.href = "all_courses.html";
+        } else {
+            alert("Error: Delete failed. " + await readError(res));
+        }
+    }
+
+    async function loadCourse() {
+        const res = await fetch("/api/syllabus/" + courseId);
+        if (!res.ok) return alert("Course not found");
+        originalData = await res.json();
+        renderView(originalData);
+        renderEdit(originalData);
+        setViewEdit(false);
+    }
+
+
+
+    $("editBtn").onclick = () => setViewEdit(true);
+    $("saveBtn").onclick = saveChanges;
+    $("deleteBtn").onclick = deleteCourse;
+
+    loadCourse();
+</script>
+</body>
+</html>

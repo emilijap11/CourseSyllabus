@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Course</title>
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<div class="container">
+    <h1>Edit Course</h1>
+    <div class="page-subtitle">Update course information using the same structure as Add Course.</div>
+
+
+
+    <table class="form-table add-course-table">
+        <tr>
+            <th>Course Name</th>
+            <td><input id="name"></td>
+        </tr>
+        <tr>
+            <th>ECTS</th>
+            <td><input id="ects" type="number"></td>
+        </tr>
+        <tr>
+            <th>Description</th>
+            <td><textarea id="description"></textarea></td>
+        </tr>
+        <tr>
+            <th>Course Objectives</th>
+            <td><textarea id="objectives"></textarea></td>
+        </tr>
+        <tr>
+            <th>Learning Outcomes</th>
+            <td><textarea id="outcomes"></textarea></td>
+        </tr>
+        <tr>
+            <th>Literature</th>
+            <td><textarea id="literature"></textarea></td>
+        </tr>
+        <tr>
+            <th>Thematic Units</th>
+            <td><textarea id="thematicUnits"></textarea></td>
+        </tr>
+        <tr>
+            <th>Pre-exam Obligations</th>
+            <td>
+                <div id="preExamList"></div>
+                <button id="addPreExamBtn" class="btn-slim btn-muted" type="button" onclick="addObligationRow('preExamList')">+ Add Pre-exam</button>
+            </td>
+        </tr>
+        <tr>
+            <th>Exam Obligations</th>
+            <td>
+                <div id="examList"></div>
+                <button id="addExamBtn" class="btn-slim btn-muted" type="button" onclick="addObligationRow('examList')">+ Add Exam</button>
+            </td>
+        </tr>
+    </table>
+
+
+
+    <div class="button-row form-actions">
+        <button id="editBtn" class="btn-slim" onclick="enableEdit()">Edit</button>
+        <button id="saveBtn" class="btn-slim" onclick="saveChanges()" style="display:none;">Save Changes</button>
+        <button class="btn-slim btn-outline" onclick="location.href='all_courses.html'">Back</button>
+    </div>
+    <p id="result"></p>
+</div>
+
+
+
+<script>
+    const courseId = new URLSearchParams(window.location.search).get('id');
+    async function loadCourse(){
+        const res = await fetch("/api/syllabus/" + courseId);
+        const course = await res.json();
+        document.getElementById("name").value = course.course.name || "";
+        document.getElementById("ects").value = course.course.ects || "";
+        document.getElementById("objectives").value = (course.courseObjectives || []).join("\n");
+        document.getElementById("outcomes").value = (course.learningOutcomes || []).join("\n");
+        document.getElementById("literature").value = (course.literature || []).join("\n");
+        document.getElementById("thematicUnits").value = (course.thematicUnits || []).join("\n");
+        const assessment = course.assessmentComponents || [];
+        const parsed = parseAssessment(assessment);
+        renderObligations("preExamList", parsed.preExam);
+        renderObligations("examList", parsed.exam);
+
+        disableFields();
+    }
+
+
+    function disableFields(){
+        document.querySelectorAll(".container input, .container textarea").forEach(f=>f.disabled=true);
+        document.getElementById("editBtn").style.display="inline-block";
+        document.getElementById("saveBtn").style.display="none";
+        document.getElementById("addPreExamBtn").style.display="none";
+        document.getElementById("addExamBtn").style.display="none";
+    }
+
+    function enableEdit(){
+        document.querySelectorAll(".container input, .container textarea").forEach(f=>f.disabled=false);
+        document.getElementById("editBtn").style.display="none";
+        document.getElementById("saveBtn").style.display="inline-block";
+        document.getElementById("addPreExamBtn").style.display="inline-block";
+        document.getElementById("addExamBtn").style.display="inline-block";
+    }
+
+    async function saveChanges(){
+        const preExam = collectObligations("preExamList", true);
+        const exam = collectObligations("examList", false);
+        if (!exam) {
+            alert("Error: Exam obligations are required.");
+            return;
+        }
+        const total = [...preExam, ...exam].reduce((sum, o) => sum + o.percent, 0);
+        if (total !== 100) {
+            alert("Error: Pre-exam + Exam obligations must total 100%.");
+            return;
+        }
+        const ectsValue = document.getElementById("ects").value;
+        if (isNaN(Number(ectsValue))) {
+            alert("Error: ECTS must be a number.");
+            return;
+        }
+
+        const assessment = [
+            ...preExam.map(o => `Pre-exam: ${o.description} - ${o.percent}`),
+            ...exam.map(o => `Exam: ${o.description} - ${o.percent}`)
+        ];
+        const course = {
+            name: document.getElementById("name").value,
+            ects: Number(ectsValue),
+            description: document.getElementById("description").value,
+            courseObjectives: document.getElementById("objectives").value.split("\n"),
+            learningOutcomes: document.getElementById("outcomes").value.split("\n"),
+            literature: document.getElementById("literature").value.split("\n"),
+            thematicUnits: document.getElementById("thematicUnits").value.split("\n"),
+            assessmentComponents: assessment
+        };
+        try{
+            const res = await fetch("/api/syllabus/" + courseId,{
+                method:"PUT",
+                headers:{"Content-Type":"application/json"},
+                body: JSON.stringify(course)
+            });
+            if(res.ok){
+                alert("Success: Changes saved.");
+                loadCourse();
+            } else {
+                alert("Error: Save failed.");
+            }
+        }catch(e){
+            alert("Error: Server error.");
+        }
+    }
+    function addObligationRow(containerId, description = "", percent = "") {
+        const container = document.getElementById(containerId);
+        const row = document.createElement("div");
+        row.style.display = "grid";
+        row.style.gridTemplateColumns = "1fr 120px";
+        row.style.gap = "8px";
+        row.style.marginBottom = "8px";
+        row.innerHTML = `
+            <input class="ob-desc" placeholder="Description" value="${description}">
+            <input class="ob-percent" placeholder="%" value="${percent}">
+        `;
+        container.appendChild(row);
+    }
+
+    function renderObligations(containerId, items) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+        if (!items || items.length === 0) {
+            addObligationRow(containerId);
+            return;
+        }
+        items.forEach(i => addObligationRow(containerId, i.description, i.percent));
+    }
+
+    function collectObligations(containerId, allowEmpty) {
+        const rows = document.querySelectorAll(`#${containerId} .ob-desc`);
+        const list = [];
+        for (const row of rows) {
+            const wrapper = row.closest("div");
+            const desc = wrapper.querySelector(".ob-desc").value.trim();
+            const percentValue = wrapper.querySelector(".ob-percent").value.trim();
+            if (!desc && !percentValue) {
+                continue;
+            }
+            const cleaned = percentValue.replace("%", "").replace(",", ".").trim();
+            const percent = Number(cleaned);
+            if (!desc || cleaned === "" || isNaN(percent)) {
+                return null;
+            }
+            list.push({ description: desc, percent });
+        }
+        if (!list.length) {
+            return allowEmpty ? [] : null;
+        }
+        return list;
+    }
+
+    function parseAssessment(items) {
+        const preExam = [];
+        const exam = [];
+        (items || []).forEach(i => {
+            const s = String(i);
+            if (s.startsWith("Pre-exam:")) {
+                const rest = s.replace(/^Pre-exam:\s*/,"");
+                const parts = rest.split(" - ");
+                preExam.push({ description: parts[0] || rest, percent: Number(parts[1]) || 0 });
+            } else if (s.startsWith("Exam:")) {
+                const rest = s.replace(/^Exam:\s*/,"");
+                const parts = rest.split(" - ");
+                exam.push({ description: parts[0] || rest, percent: Number(parts[1]) || 0 });
+            }
+        });
+        return { preExam, exam };
+    }
+
+    loadCourse();
+</script>
+</body>
+</html>
